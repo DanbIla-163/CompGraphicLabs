@@ -67,11 +67,15 @@ def baricenter (x0, y0, x1, y1, x2, y2, x, y):
     lambda2 = 1.0 - lambda0 - lambda1
     return lambda0, lambda1, lambda2
 
-def draw_triangle(x0, y0, z0, x1, y1, z1, x2, y2, z2, img_matr, color, z_buffer):
+def draw_triangle(img_mat, z_buffer, color, polygon_texture_nums, texture_coords, texture, x0, y0, z0, x1, y1, z1, x2, y2, z2,  i0, i1, i2):
     a = 6000
     px0, py0 = a * x0 / z0 + widh / 2, a * y0 / z0 + high / 2
     px1, py1 = a * x1 / z1 + widh / 2, a * y1 / z1 + high / 2
     px2, py2 = a * x2 / z2 + widh / 2, a * y2 / z2 + high / 2
+
+    I0 = i0[2]
+    I1 = i1[2]
+    I2 = i2[2]
 
     xmin = min(px0, px1, px2)
     xmax = max(px0, px1, px2)
@@ -93,8 +97,23 @@ def draw_triangle(x0, y0, z0, x1, y1, z1, x2, y2, z2, img_matr, color, z_buffer)
             lam0, lam1, lam2 = baricenter(px0, py0, px1, py1, px2, py2, x, y)
             if (lam0 >= 0 and lam1>= 0 and lam2 >= 0):
                 z_coord = lam0*z0 + lam1*z1 + lam2*z2
-                if z_coord < z_buffer[y][x]:  # Рисуем, если новое Z БЛИЖЕ
-                    img_matr[y][x] = color
+                if z_coord > z_buffer[y][x]:
+                    continue
+                else:
+                    Intence = lam0 * I0 + lam1 * I1 + lam2 * I2
+                    UVt1 = polygon_texture_nums[0]
+                    UVt2 = polygon_texture_nums[1]
+                    UVt3 = polygon_texture_nums[2]
+
+                    Wid = texture.shape[0]
+                    High = texture.shape[1]
+
+                    color = texture[int(Wid * (
+                                lam0 * texture_coords[UVt1 - 1][1] + lam1 * texture_coords[UVt2 - 1][1] + lam2 *
+                                texture_coords[UVt3 - 1][1]))][int(High * (
+                                lam0 * texture_coords[UVt1 - 1][0] + lam1 * texture_coords[UVt2 - 1][0] + lam2 *
+                                texture_coords[UVt3 - 1][0]))]
+                    img_mat[y][x] = color * -Intence
                     z_buffer[y][x] = z_coord
 
 def normal(x0, y0, z0, x1, y1, z1, x2, y2, z2):
@@ -129,3 +148,26 @@ def resize(vectorv, tx=0, ty=0, tz=0, alpha=np.radians(0), beta=np.radians(0), g
     for i in vectorv:
         i[0], i[1], i[2] = np.dot(model_rotation(alpha, beta, gamma), [i[0], i[1], i[2]]) + [tx, ty, tz]
     return vectorv
+
+
+def get_point_normals(vectorv, vectorf, normalsArr):
+    for i in range(0, len(vectorf)):
+        x0 = (vectorv[vectorf[i][0] - 1][0])
+        y0 = (vectorv[vectorf[i][0] - 1][1])
+        z0 = (vectorv[vectorf[i][0] - 1][2])
+        x1 = (vectorv[vectorf[i][1] - 1][0])
+        y1 = (vectorv[vectorf[i][1] - 1][1])
+        z1 = (vectorv[vectorf[i][1] - 1][2])
+        x2 = (vectorv[vectorf[i][2] - 1][0])
+        y2 = (vectorv[vectorf[i][2] - 1][1])
+        z2 = (vectorv[vectorf[i][2] - 1][2])
+
+        norm = normal(x0, y0, z0, x1, y1, z1, x2, y2, z2)
+        norm /= np.linalg.norm(norm)
+        normalsArr[vectorf[i][0] - 1] += norm
+        normalsArr[vectorf[i][1] - 1] += norm
+        normalsArr[vectorf[i][2] - 1] += norm
+    for i in range(0, len(normalsArr)):
+        normalsArr[i] = normalsArr[i]/np.linalg.norm(normalsArr[i])
+
+    return normalsArr
